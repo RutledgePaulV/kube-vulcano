@@ -1,4 +1,4 @@
-FROM golang:1.5.1-onbuild
-
-
-ENTRYPOINT ["go-wrapper", "run"]
+FROM scratch
+MAINTAINER Paul Rutledge <paul.v.rutledge@gmail.com>
+COPY kube-vulcano /kube-vulcano
+CMD [ "/kube-vulcano" ]

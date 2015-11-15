@@ -47,8 +47,8 @@ var (
 )
 
 func init() {
-	flag.StringVar(&apiServer, "kube-apiserver", "127.0.0.1:8001", "Kubernetes API server for watching endpoints. (ip:port)")
-	flag.StringVar(&vulcandServer, "vulcand-server", "192.168.99.100:8182", "Vulcand server for external loadbalancing (ip:port)")
+	flag.StringVar(&apiServer, "kube-apiserver", "wss://kubernetes.default/api/v1/watch/endpoints", "Kubernetes API server for watching endpoints. (ip:port)")
+	flag.StringVar(&vulcandServer, "vulcand-server", "http://192.168.99.100:8182", "Vulcand server for external loadbalancing (ip:port)")
 }
 
 
@@ -57,11 +57,9 @@ func main() {
 	flag.Parse()
 
 
-	var client = api.NewClient(fmt.Sprintf("http://%s", vulcandServer), plugin.NewRegistry())
-
-
+	var client = api.NewClient(vulcandServer, plugin.NewRegistry())
 	origin := "http://localhost"
-	url := fmt.Sprintf("ws://%s/api/v1/endpoints?watch=true", apiServer)
+	url := apiServer
 	ws, err := websocket.Dial(url, "", origin)
 	if err != nil {
 		log.Fatal(err)

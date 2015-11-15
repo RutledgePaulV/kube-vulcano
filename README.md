@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/RutledgePaulV/kube-vulcano.svg)](https://travis-ci.org/RutledgePaulV/kube-vulcano)
+[![](https://badge.imagelayers.io/rutledgepaulv/kube-vulcano:latest.svg)](https://imagelayers.io/?images=rutledgepaulv/kube-vulcano:latest 'Get your own badge on imagelayers.io')
 
 ### Kube-Vulcano
 

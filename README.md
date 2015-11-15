@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/RutledgePaulV/kube-vulcano.svg)](https://travis-ci.org/RutledgePaulV/kube-vulcano)
+
 ### Kube-Vulcano
 
 A simple GO process as a docker container for providing realtime service registration/deregistration to an external 

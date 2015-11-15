@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-command="docker run -v $PWD:/go/src/app -e PROJECT=kube-vulcano rutledgepaulv/godep-vendor-builder"
+command="docker run -v $PWD:/go/src/app -e PROJECT=kube-vulcano rutledgepaulv/godep-vendor-builder:master"
 echo "Executing command to build go binary: ${command}"
 ${command}
 

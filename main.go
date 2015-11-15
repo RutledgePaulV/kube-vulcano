@@ -3,7 +3,6 @@ import (
 	"flag"
 	"github.com/vulcand/vulcand/api"
 	"github.com/vulcand/vulcand/plugin"
-	"fmt"
 	"golang.org/x/net/websocket"
 	"log"
 	"time"

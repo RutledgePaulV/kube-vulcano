@@ -71,7 +71,7 @@ func main() {
 	print(results)
 	print(labelSelector)
 
-	print("made it to the end")
+	log.Println("made it to the end")
 
 	//	consumer, err := kClient.Endpoints(namespace).Watch(labelSelector, fields.Everything(), api.ListOptions{Watch: true})
 

@@ -10,6 +10,10 @@ import (
 	vClient "github.com/vulcand/vulcand/api"
 	vPlugin "github.com/vulcand/vulcand/plugin"
 	kClient "k8s.io/kubernetes/pkg/client/unversioned"
+"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/watch"
+	"encoding/json"
+	"time"
 )
 
 
@@ -60,7 +64,7 @@ func main() {
 		labelSelector = labels.Everything()
 	}
 
-	results, err := kClient.Endpoints(namespace).List(labelSelector, fields.Everything())
+	consumer, err := kClient.Endpoints(namespace).Watch(labelSelector, fields.Everything(), api.ListOptions{Watch: true})
 
 	if err != nil {
 		log.Println("Error obtaining a watch on the kubernetes endpoints.")
@@ -68,19 +72,31 @@ func main() {
 	}
 
 	print(vClient)
-	print(results)
-	print(labelSelector)
 
-	log.Println("made it to the end")
+	channel := consumer.ResultChan()
 
-	//	consumer, err := kClient.Endpoints(namespace).Watch(labelSelector, fields.Everything(), api.ListOptions{Watch: true})
+	for {
+		time.Sleep(3 * time.Second)
+		next := <- channel
+		switch next.Type {
+		case watch.Added:
+			obj, _ := json.Marshal(next.Object)
+			log.Println("Endpoint was added. \n" + string(obj))
+			break
+		case watch.Modified:
+			obj, _ := json.Marshal(next.Object)
+			log.Println("Endpoint was added. \n" + string(obj))
+			break
+		case watch.Deleted:
+			obj, _ := json.Marshal(next.Object)
+			log.Println("Endpoint was added. \n" + string(obj))
+			break
+		case watch.Error:
+			obj, _ := json.Marshal(next.Object)
+			log.Println("Endpoint was added. \n" + string(obj))
+			break
+		}
+	}
 
-	//	print("huh")
-	//
-	//	if err != nil {
-	//		log.Println("Error encountered when getting a watch on the kubernetes endpoints resource.")
-	//	}
-	//
-	//	print(consumer)
 
 }

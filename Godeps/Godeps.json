@@ -199,11 +199,11 @@
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/curve25519",
-			"Rev": "575fdbe86e5dd89229707ebec0575ce7d088a4a6"
+			"Rev": "b270509459adaed5fe5be459e6ddb0e1f3ef803d"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/ssh",
-			"Rev": "575fdbe86e5dd89229707ebec0575ce7d088a4a6"
+			"Rev": "b270509459adaed5fe5be459e6ddb0e1f3ef803d"
 		},
 		{
 			"ImportPath": "golang.org/x/net/context",

@@ -1,13 +1,15 @@
 package main
+
+
 import (
-	"flag"
+	"os"
 	"log"
-	kClient "k8s.io/kubernetes/pkg/client/unversioned"
-	vClient "github.com/vulcand/vulcand/api"
-	vulcandPlugin "github.com/vulcand/vulcand/plugin"
+	"flag"
 	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/fields"
-	"os"
+	vClient "github.com/vulcand/vulcand/api"
+	vPlugin "github.com/vulcand/vulcand/plugin"
+	kClient "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
 
@@ -35,8 +37,10 @@ func main() {
 	flag.Parse()
 	log.Println("Connecting to kubernetes via url " + kServer)
 	log.Println("Connecting to vulcand via url " + vServer)
+	log.Println("Provided label query: " + labelQuery)
+	log.Println("Observing endpoints within namespace: " + namespace)
 
-	vClient := vClient.NewClient(vServer, vulcandPlugin.NewRegistry())
+	vClient := vClient.NewClient(vServer, vPlugin.NewRegistry())
 	kClient, err := kClient.NewInCluster()
 
 	if err != nil {
@@ -56,16 +60,18 @@ func main() {
 		labelSelector = labels.Everything()
 	}
 
-	results, error := kClient.Endpoints(namespace).List(labelSelector, fields.Everything())
+	results, err := kClient.Endpoints(namespace).List(labelSelector, fields.Everything())
 
-	if error != nil {
-		log.Println("Error parsing the provided label query.")
+	if err != nil {
+		log.Println("Error obtaining a watch on the kubernetes endpoints.")
 		os.Exit(1)
 	}
 
 	print(vClient)
 	print(results)
 	print(labelSelector)
+
+	print("made it to the end")
 
 	//	consumer, err := kClient.Endpoints(namespace).Watch(labelSelector, fields.Everything(), api.ListOptions{Watch: true})
 

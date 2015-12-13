@@ -2,7 +2,6 @@ package main
 
 
 import (
-	"os"
 	"log"
 	"flag"
 	"k8s.io/kubernetes/pkg/labels"
@@ -10,10 +9,13 @@ import (
 	vClient "github.com/vulcand/vulcand/api"
 	vPlugin "github.com/vulcand/vulcand/plugin"
 	kClient "k8s.io/kubernetes/pkg/client/unversioned"
-"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/watch"
 	"encoding/json"
 	"time"
+	"k8s.io/kubernetes/pkg/runtime"
+	"github.com/vulcand/vulcand/engine"
+	"strconv"
 )
 
 
@@ -36,6 +38,82 @@ func init() {
 
 
 
+func ensureEndpointConfiguredForVulcand(client *vClient.Client, endpoints api.Endpoints) {
+
+	name := endpoints.Name + "." + endpoints.Namespace
+
+	backend := engine.Backend{Id: name, Type: "http",
+		Settings: engine.HTTPBackendSettings{
+			Timeouts: engine.HTTPBackendTimeouts{Read: "5s", Dial: "5s", TLSHandshake:"10s"},
+			KeepAlive: engine.HTTPBackendKeepAlive{Period: "30s", MaxIdleConnsPerHost: 12}}}
+
+	err := client.UpsertBackend(backend)
+
+	if err != nil {
+		log.Println("Encountered error when creating backend in vulcand: " + err.Error())
+	}
+
+
+	// add servers to the backend
+	for _, element := range endpoints.Subsets {
+		for _, address := range element.Addresses {
+			url := "http://" + address.IP + ":" + strconv.Itoa(element.Ports[0].Port)
+			log.Println("Attempting to add server to backend " + backend.GetUniqueId().Id + " using url: " + url)
+			err = client.UpsertServer(backend.GetUniqueId(), engine.Server{Id: url, URL: "http://localhost:8080"}, time.Second * 5)
+			if err != nil {
+				log.Println("Encountered error when adding server to backend: " + err.Error())
+			}
+		}
+	}
+
+	// make sure there's a frontend
+	frontend := engine.Frontend{Id: name, Type: "http", Route: "Path(`/`)", BackendId: name}
+	err = client.UpsertFrontend(frontend, time.Second * 5)
+
+	if err != nil {
+		log.Println("Encountered error when creating frontend in vulcand: " + err.Error())
+	}
+
+}
+
+
+func removeUnusedEndpointsFromVulcand(client *vClient.Client, endpoints api.Endpoints) {
+
+	name := endpoints.Name + "." + endpoints.Namespace
+
+	backend, err := client.GetBackend(engine.BackendKey{Id: name})
+
+	if err != nil {
+		log.Println("Encountered error when getting backend to remove unused endpoints: " + err.Error())
+		return
+	}
+
+	servers, err := client.GetServers(engine.BackendKey{Id: name})
+
+	if err != nil {
+		log.Println("Encountered error when getting servers to remove unused endpoints: " + err.Error())
+		return
+	}
+
+	js, _ := json.Marshal(backend)
+	log.Println(js)
+
+	js, _ = json.Marshal(servers)
+	log.Println(js)
+}
+
+
+func deserialize(result runtime.Object) (api.Endpoints, error) {
+	obj, _ := json.Marshal(result)
+	var endpoints api.Endpoints
+	err := json.Unmarshal(obj, &endpoints)
+	if err != nil {
+		log.Println("Could not unmarshal channel result into endpoint type: \n" + string(obj))
+		return endpoints, err
+	}
+	return endpoints, nil
+}
+
 func main() {
 
 	flag.Parse()
@@ -45,11 +123,11 @@ func main() {
 	log.Println("Observing endpoints within namespace: " + namespace)
 
 	vClient := vClient.NewClient(vServer, vPlugin.NewRegistry())
-	kClient, err := kClient.NewInCluster()
+	kClient, err := kClient.New(&kClient.Config{Host:kServer})
 
 	if err != nil {
-		log.Println("Error encountered when connecting to kubernetes api.")
-		os.Exit(1)
+		log.Println("Error encountered when connecting to kubernetes api." + err.Error())
+		panic(err)
 	}
 
 	var labelSelector labels.Selector = nil
@@ -58,45 +136,46 @@ func main() {
 		labelSelector, err = labels.Parse(labelQuery)
 		if err != nil {
 			log.Println("Error parsing the provided label query.")
-			os.Exit(1)
+			panic(err)
 		}
 	}  else {
 		labelSelector = labels.Everything()
 	}
 
-	consumer, err := kClient.Endpoints(namespace).Watch(labelSelector, fields.Everything(), api.ListOptions{Watch: true})
+
+	socket, err := kClient.Endpoints(namespace).
+	Watch(labelSelector, fields.Everything(), api.ListOptions{Watch: true})
 
 	if err != nil {
 		log.Println("Error obtaining a watch on the kubernetes endpoints.")
-		os.Exit(1)
+		panic(err)
 	}
 
-	print(vClient)
-
-	channel := consumer.ResultChan()
-
+	// poll the channel indefinitely
 	for {
-		time.Sleep(3 * time.Second)
-		next := <- channel
-		switch next.Type {
-		case watch.Added:
-			obj, _ := json.Marshal(next.Object)
-			log.Println("Endpoint was added. \n" + string(obj))
-			break
-		case watch.Modified:
-			obj, _ := json.Marshal(next.Object)
-			log.Println("Endpoint was added. \n" + string(obj))
-			break
-		case watch.Deleted:
-			obj, _ := json.Marshal(next.Object)
-			log.Println("Endpoint was added. \n" + string(obj))
-			break
-		case watch.Error:
-			obj, _ := json.Marshal(next.Object)
-			log.Println("Endpoint was added. \n" + string(obj))
-			break
-		}
-	}
 
+		select {
+		case event := <-socket.ResultChan():
+			switch event.Type {
+			case watch.Added:
+				endpoint, _ := deserialize(event.Object)
+				ensureEndpointConfiguredForVulcand(vClient, endpoint)
+				log.Println("Endpoint was added: \n" + endpoint.Name)
+			case watch.Modified:
+				endpoint, _ := deserialize(event.Object)
+				ensureEndpointConfiguredForVulcand(vClient, endpoint)
+				log.Println("Endpoint was modified: \n" + endpoint.Name)
+			case watch.Deleted:
+				endpoint, _ := deserialize(event.Object)
+				removeUnusedEndpointsFromVulcand(vClient, endpoint)
+				log.Println("Endpoint was deleted: \n" + endpoint.Name)
+			case watch.Error:
+				log.Println("Encountered an error from the endpoints socket. Continuing...")
+			}
+		default:
+			time.Sleep(1 * time.Second)
+		}
+
+	}
 
 }

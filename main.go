@@ -59,7 +59,7 @@ func ensureEndpointConfiguredForVulcand(client *vClient.Client, endpoints api.En
 		for _, address := range element.Addresses {
 			url := "http://" + address.IP + ":" + strconv.Itoa(element.Ports[0].Port)
 			log.Println("Attempting to add server to backend " + backend.GetUniqueId().Id + " using url: " + url)
-			err = client.UpsertServer(backend.GetUniqueId(), engine.Server{Id: url, URL: "http://localhost:8080"}, time.Second * 5)
+			err = client.UpsertServer(backend.GetUniqueId(), engine.Server{Id: url, URL: url}, time.Second * 5)
 			if err != nil {
 				log.Println("Encountered error when adding server to backend: " + err.Error())
 			}
